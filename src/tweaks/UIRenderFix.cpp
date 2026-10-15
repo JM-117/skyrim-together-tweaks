@@ -247,8 +247,11 @@ namespace
         LONGLONG frequency = 0;
         LONGLONG nextFrame = 0;
         LONGLONG interval = 0;
+        LONGLONG keepUntil = 0;
         HANDLE   timer = nullptr;
     };
+
+    constexpr LONGLONG kCloseGraceMs = 1000;
 
     FrameLimiter g_limiter;
     bool         g_smoothRendering = false;
@@ -288,10 +291,19 @@ namespace
         if (g_smoothRendering)
             UploadAndBind(a_self);
 
-        if (g_limiter.interval && Member<bool>(a_self, kCursorVisible))
-            LimitFrameRate();
-        else
-            g_limiter.nextFrame = 0;
+        if (g_limiter.interval)
+        {
+            // Keep the cap for a moment after the menu closes, so the fade-out animation and its last
+            // (fully transparent) frame still get GPU time; otherwise the old frame can stay on screen
+            const LONGLONG now = Now();
+            if (Member<bool>(a_self, kCursorVisible))
+                g_limiter.keepUntil = now + g_limiter.frequency * kCloseGraceMs / 1000;
+
+            if (now < g_limiter.keepUntil)
+                LimitFrameRate();
+            else
+                g_limiter.nextFrame = 0;
+        }
 
         g_originalRender(a_self);
     }
