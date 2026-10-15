@@ -6,6 +6,7 @@ namespace hooks
     void InstallPreloadHooks()
     {
         UIActivationFix::Install();
+        UIRenderFix::Install();
         MH_EnableHook(MH_ALL_HOOKS);
     }
 
