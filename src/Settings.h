@@ -8,7 +8,9 @@ namespace settings
     static REX::INI::Bool bEnableF2Fix("General", "bEnableF2Fix", true);
     static REX::INI::Bool bEnableConsole("General", "bEnableConsole", false);
     static REX::INI::Bool bAppendVersionInCrashLogs("General", "bAppendVersionInCrashLogs", true);
-    static REX::INI::Bool bSmoothUIRendering("General", "bSmoothUIRendering", true);
+    static REX::INI::Bool bSmoothUIRendering("General", "bSmoothUIRendering", false);
+    static REX::INI::U32  uUiOpenFpsLimit("General", "uUiOpenFpsLimit", 60);
+    static REX::INI::U32  uUiFrameRate("General", "uUiFrameRate", 60);
 
     // [Keys]
     static REX::INI::U32  uUiKeyCode("Keys", "uUiKeyCode", 0x71);

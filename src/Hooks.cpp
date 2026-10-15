@@ -7,6 +7,7 @@ namespace hooks
     {
         UIActivationFix::Install();
         UIRenderFix::Install();
+        UIFrameRate::Install();
         MH_EnableHook(MH_ALL_HOOKS);
     }
 

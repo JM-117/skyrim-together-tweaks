@@ -17,6 +17,7 @@
 namespace
 {
     // OverlayRenderHandlerD3D11 layout in Skyrim Together 1.8.x (checked against the patterns below)
+    constexpr size_t kCursorVisible = 0x11;  // true while the STR menu is open (InputService SetUIActive)
     constexpr size_t kWidth = 0x24;
     constexpr size_t kHeight = 0x28;
     constexpr size_t kTextureView = 0x40;
@@ -239,18 +240,71 @@ namespace
         }
     }
 
+    // The game's render thread usually keeps the GPU at 100%, which starves Chromium's own GPU process:
+    // the UI then only gets a few frames per second. Capping the game while the UI is open frees the GPU for it.
+    struct FrameLimiter
+    {
+        LONGLONG frequency = 0;
+        LONGLONG nextFrame = 0;
+        LONGLONG interval = 0;
+        HANDLE   timer = nullptr;
+    };
+
+    FrameLimiter g_limiter;
+    bool         g_smoothRendering = false;
+
+    LONGLONG Now()
+    {
+        LARGE_INTEGER counter;
+        QueryPerformanceCounter(&counter);
+        return counter.QuadPart;
+    }
+
+    void LimitFrameRate()
+    {
+        LONGLONG now = Now();
+        if (now < g_limiter.nextFrame)
+        {
+            const LONGLONG remaining = g_limiter.nextFrame - now;
+            // Sleep for most of the wait, then spin for the last ~1 ms so the pacing stays even
+            const LONGLONG sleepTicks = remaining - g_limiter.frequency / 1000;
+            if (sleepTicks > 0 && g_limiter.timer)
+            {
+                LARGE_INTEGER due;
+                due.QuadPart = -(sleepTicks * 10'000'000 / g_limiter.frequency);  // relative, in 100 ns units
+                if (SetWaitableTimer(g_limiter.timer, &due, 0, nullptr, nullptr, FALSE))
+                    WaitForSingleObject(g_limiter.timer, INFINITE);
+            }
+            while ((now = Now()) < g_limiter.nextFrame)
+                YieldProcessor();
+        }
+
+        // Don't try to catch up after a slow frame, just start pacing again from now
+        g_limiter.nextFrame = (std::max)(g_limiter.nextFrame + g_limiter.interval, now);
+    }
+
     void RenderHook(void* a_self)
     {
-        UploadAndBind(a_self);
+        if (g_smoothRendering)
+            UploadAndBind(a_self);
+
+        if (g_limiter.interval && Member<bool>(a_self, kCursorVisible))
+            LimitFrameRate();
+        else
+            g_limiter.nextFrame = 0;
+
         g_originalRender(a_self);
     }
 }
 
 void UIRenderFix::Install()
 {
-    if (!settings::bSmoothUIRendering.GetValue())
+    g_smoothRendering = settings::bSmoothUIRendering.GetValue();
+    const uint32_t fpsLimit = settings::uUiOpenFpsLimit.GetValue();
+
+    if (!g_smoothRendering && fpsLimit == 0)
     {
-        logger::info("bSmoothUIRendering is set to false, not installing smooth UI rendering");
+        logger::info("bSmoothUIRendering is false and uUiOpenFpsLimit is 0, not installing UI rendering tweaks");
         return;
     }
 
@@ -258,7 +312,7 @@ void UIRenderFix::Install()
     const uintptr_t render = memscan::FindPatternInST(memscan::aob::OverlayRenderHandlerD3D11_Render);
     if (!onPaint || !render)
     {
-        logger::warn("smooth UI rendering: OverlayRenderHandlerD3D11 patterns not found (OnPaint: {:X}, Render: {:X}), skipping", onPaint, render);
+        logger::warn("UI rendering tweaks: OverlayRenderHandlerD3D11 patterns not found (OnPaint: {:X}, Render: {:X}), skipping", onPaint, render);
         return;
     }
 
@@ -266,16 +320,40 @@ void UIRenderFix::Install()
     const uintptr_t renderViewRead = memscan::FindPattern(memscan::aob::OverlayRenderHandlerD3D11_Render_textureViewRead, render);
     if (!renderViewRead || renderViewRead - render > 0x300)
     {
-        logger::warn("smooth UI rendering: unexpected OverlayRenderHandlerD3D11 layout, skipping");
+        logger::warn("UI rendering tweaks: unexpected OverlayRenderHandlerD3D11 layout, skipping");
         return;
     }
 
-    if (MH_CreateHookTyped(onPaint, OnPaintHook, &g_originalOnPaint) != MH_OK ||
-        MH_CreateHookTyped(render, RenderHook, &g_originalRender) != MH_OK)
+    if (fpsLimit > 0)
     {
-        logger::warn("smooth UI rendering: failed to create hooks, skipping");
+        LARGE_INTEGER frequency;
+        QueryPerformanceFrequency(&frequency);
+        g_limiter.frequency = frequency.QuadPart;
+        g_limiter.interval = frequency.QuadPart / fpsLimit;
+        g_limiter.timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+        if (!g_limiter.timer)
+            g_limiter.timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
+    }
+
+    if (MH_CreateHookTyped(render, RenderHook, &g_originalRender) != MH_OK)
+    {
+        logger::warn("UI rendering tweaks: failed to hook Render, skipping");
         return;
     }
 
-    logger::info("installed smooth UI rendering (OnPaint: {:X}, Render: {:X})", onPaint, render);
+    if (g_smoothRendering)
+    {
+        if (MH_CreateHookTyped(onPaint, OnPaintHook, &g_originalOnPaint) != MH_OK)
+        {
+            logger::warn("smooth UI rendering: failed to hook OnPaint, disabling it");
+            g_smoothRendering = false;
+        }
+        else
+        {
+            logger::info("installed smooth UI rendering (OnPaint: {:X})", onPaint);
+        }
+    }
+
+    if (fpsLimit > 0)
+        logger::info("installed UI-open frame rate limit: {} fps (Render: {:X})", fpsLimit, render);
 }

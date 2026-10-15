@@ -8,3 +8,4 @@ namespace InterpolationBufferMs { void Install(); }
 namespace NoAnimationDelay { void Install(); }
 namespace UIActivationFix { void Install(); }
 namespace UIRenderFix { void Install(); }
+namespace UIFrameRate { void Install(); }

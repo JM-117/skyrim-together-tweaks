@@ -31,6 +31,8 @@ namespace memscan
         const std::string_view OverlayRenderHandlerD3D11_Render = "48 8B C4 48 89 58 18 48 89 70 20 55 57 41 56 48 8D 68 A1 48 81 EC E0 00 00 00";
         // mov rdx, [rdi+40h] (m_pTextureView) inside Render
         const std::string_view OverlayRenderHandlerD3D11_Render_textureViewRead = "48 8B 57 40 0F 57 F6 48 85 D2";
+        // TiltedUI OverlayApp::Initialize, CefBrowserSettings setup: size = 0x108, windowless_frame_rate = 60
+        const std::string_view OverlayApp_Initialize_windowlessFrameRate = "48 C7 85 ?? ?? ?? ?? 08 01 00 00 C7 85 ?? ?? ?? ?? 3C 00 00 00";
 
         const std::string_view CrashLogger_log_common_header_info = "48 89 5C 24 20 55 56 57 41 56 41 57 48 8D 6C";
     }
