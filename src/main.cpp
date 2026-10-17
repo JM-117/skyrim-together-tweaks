@@ -59,6 +59,11 @@ void InitializeLog()
 
 inline void RealInitialize()
 {
+    // Both preloaders (d3dx9_42.dll and SKSE's native one) can call us; a second run would truncate the log
+    // and fail to find patterns that the first run already hooked
+    if (g_preloaded)
+        return;
+
     settings::Load();
     if (settings::bEnableConsole.GetValue())
     {
