@@ -27,3 +27,8 @@ cmake --build buildae --config Release
 
 ## License
 [MIT](LICENSE)
+
+## Code graph (graphify)
+
+Read `graphify-out/GRAPH_REPORT.md` before searching the code; query with
+`graphify query "<question>"` (graph in `graphify-out/graph.json`). CI refreshes it on every push to `main`.

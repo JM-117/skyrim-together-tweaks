@@ -1,2 +1,7 @@
 build*/
 /.vs
+
+# graphify: report and graph.json are tracked; cache and html are local
+graphify-out/cache/
+graphify-out/graph.html
+graphify-out/manifest.json
