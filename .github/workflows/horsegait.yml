@@ -16,9 +16,11 @@ jobs:
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
+      - name: Clone CommonLibSSE-NG
+        run: git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/CharmedBaryon/CommonLibSSE-NG extern/CommonLibSSE-NG
+        shell: cmd
       - name: Build
         run: |
-          xmake repo -u
           xmake f -y -m release
           xmake -y -v
         shell: cmd

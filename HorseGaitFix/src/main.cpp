@@ -52,6 +52,11 @@ namespace
     }
 }
 
+SKSEPluginInfo(
+    .Version = {0, 1, 0},
+    .Name = "HorseGaitFix",
+    .RuntimeCompatibility = SKSE::PluginDeclaration::RuntimeCompatibility(SKSE::VersionIndependence::AddressLibrary))
+
 SKSEPluginLoad(const SKSE::LoadInterface* skse)
 {
     SKSE::Init(skse);
