@@ -1,0 +1,35 @@
+name: HorseGaitFix
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['HorseGaitFix/**', '.github/workflows/horsegait.yml']
+
+jobs:
+  build:
+    runs-on: windows-2022
+    defaults:
+      run:
+        working-directory: HorseGaitFix
+    steps:
+      - uses: actions/checkout@v6
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+      - name: Clone CommonLibSSE-NG
+        run: git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/CharmedBaryon/CommonLibSSE-NG extern/CommonLibSSE-NG
+        shell: cmd
+      - name: Build
+        run: |
+          xmake f -y -m release
+          xmake -y -v
+        shell: cmd
+      - name: Stage
+        run: |
+          mkdir ..\artifact\SKSE\Plugins
+          copy build\windows\x64\release\HorseGaitFix.dll ..\artifact\SKSE\Plugins\
+        shell: cmd
+      - uses: actions/upload-artifact@v6
+        with:
+          name: HorseGaitFix
+          path: artifact/*

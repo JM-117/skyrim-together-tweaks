@@ -1,0 +1,12 @@
+set_project("HorseGaitFix")
+set_version("0.1.0")
+set_languages("c++23")
+add_rules("mode.release")
+set_runtimes("MD")
+includes("extern/CommonLibSSE-NG")
+
+target("HorseGaitFix")
+    set_kind("shared")
+    add_files("src/*.cpp")
+    add_deps("commonlibsse-ng")
+    add_defines("SKSE_SUPPORT_XBYAK=0")
