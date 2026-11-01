@@ -20,11 +20,37 @@ namespace
     constexpr float kSprintSpeed = 450.f; // u/s, shortcut: valor adivinado para pasar de trote a galope; ajustar con el log
     constexpr float kHoldFrac = 0.8f;   // histéresis simple: suaviza para evitar parpadeo trote/galope
 
+    // diagnóstico: valores del grafo del caballo que monta ESTE jugador (lo que STR enviaría), 1 línea/s
+    void LogOwnMount(std::chrono::steady_clock::time_point now)
+    {
+        static auto last = now;
+        static RE::NiPoint3 lastPos{};
+        if (now - last < std::chrono::seconds(1)) return;
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        RE::NiPointer<RE::Actor> mount;
+        if (!player || !player->GetMount(mount) || !mount) return;
+        float speed = -1.f, sampled = -1.f, dir = -1.f;
+        bool moving = false, sprinting = false;
+        std::int32_t fwd = -1;
+        mount->GetGraphVariableFloat("Speed", speed);
+        mount->GetGraphVariableFloat("HorseSpeedSampled", sampled);
+        mount->GetGraphVariableFloat("Direction", dir);
+        mount->GetGraphVariableBool("IsMoving", moving);
+        mount->GetGraphVariableBool("IsSprinting", sprinting);
+        mount->GetGraphVariableInt("iSyncForwardState", fwd);
+        const auto pos = mount->GetPosition();
+        const float v = pos.GetDistance(lastPos) / std::chrono::duration<float>(now - last).count();
+        lastPos = pos; last = now;
+        spdlog::info("OWNMOUNT {:08X} race={} Speed={:.1f} SpeedSampled={:.1f} Dir={:.2f} IsMoving={} IsSprinting={} fwdState={} v={:.1f}", mount->GetFormID(),
+            mount->GetRace() ? mount->GetRace()->GetFormEditorID() : "?", speed, sampled, dir, moving, sprinting, fwd, v);
+    }
+
     void Tick()
     {
         auto* lists = RE::ProcessLists::GetSingleton();
         if (!lists) return;
         const auto now = std::chrono::steady_clock::now();
+        LogOwnMount(now);
         for (auto& handle : lists->highActorHandles)
         {
             auto actor = handle.get();
