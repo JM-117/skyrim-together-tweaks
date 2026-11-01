@@ -1,8 +1,11 @@
 // HorseGaitFix: fuerza la variable "Speed" del grafo de caballos que se mueven sin animar
 // (copias remotas de STR). No identifica caballos de STR: si Speed ya es >0, no toca nada.
+#define NOMINMAX
+#include <Windows.h>
 #include <RE/Skyrim.h>
 #include <SKSE/SKSE.h>
 #include <chrono>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -15,7 +18,8 @@ namespace
 
     std::unordered_set<RE::FormID> g_logged; // un log por actor y motivo (FormID | bit 63 = rechazado)
     constexpr float kMinSpeed = 20.f;   // u/s, bajo esto se considera parado
-    constexpr float kMaxSpeed = 1500.f; // u/s, sobre esto es un teletransporte, se ignora
+    constexpr float kMaxSpeed = 600.f;  // u/s, sobre esto es un salto de posición de STR, se ignora
+    constexpr float kSprintSpeed = 450.f; // u/s, shortcut: valor adivinado para pasar de trote a galope; ajustar con el log
     constexpr float kHoldFrac = 0.8f;   // histéresis simple: suaviza para evitar parpadeo trote/galope
 
     void Tick()
@@ -28,7 +32,9 @@ namespace
             auto actor = handle.get();
             if (!actor || actor->IsPlayerRef() || actor->IsDead() || !actor->Is3DLoaded()) continue;
             // shortcut: heurística por keyword animal + variable Speed presente; afinar con la raza del caballo si da falsos positivos
-            const bool animal = actor->HasKeywordString("ActorTypeAnimal");
+            const auto* race = actor->GetRace();
+            const std::string_view raceId = race ? race->GetFormEditorID() : "";
+            const bool animal = raceId == "HorseRace";
             float graphSpeed = 0.f;
             const bool hasSpeed = actor->GetGraphVariableFloat("Speed", graphSpeed);
             if (!animal || !hasSpeed)
@@ -58,7 +64,13 @@ namespace
             s.pos = pos; s.t = now;
             if (graphSpeed < 1.f && s.smoothed > kMinSpeed)
             {
+                // variables que PlayerHub fuerza en caballos remotos (nombres tomados de su PDB)
                 actor->SetGraphVariableFloat("Speed", s.smoothed);
+                actor->SetGraphVariableFloat("HorseSpeedSampled", s.smoothed);
+                actor->SetGraphVariableBool("IsMoving", true);
+                const bool sprint = s.smoothed > kSprintSpeed;
+                actor->SetGraphVariableBool("IsSprinting", sprint);
+                actor->SetGraphVariableInt("iState_HorseSprint", sprint ? 1 : 0);
                 if (g_logged.insert(actor->GetFormID()).second)
                     spdlog::info("FORCED {:08X} race={} graphSpeed={:.1f} v={:.1f}", actor->GetFormID(),
                         actor->GetRace() ? actor->GetRace()->GetFormEditorID() : "?", graphSpeed, s.smoothed);
@@ -86,7 +98,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse)
     SKSE::Init(skse);
     if (auto dir = SKSE::log::log_directory())
     {
-        auto log = std::make_shared<spdlog::logger>("HorseGaitFix", std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir / "HorseGaitFix.log").string(), true));
+        auto log = std::make_shared<spdlog::logger>("HorseGaitFix", std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir / ("HorseGaitFix_" + std::to_string(GetCurrentProcessId()) + ".log")).string(), true));
         spdlog::set_default_logger(log);
         spdlog::flush_on(spdlog::level::info);
         spdlog::info("HorseGaitFix loaded");
