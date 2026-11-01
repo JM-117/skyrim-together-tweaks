@@ -1,7 +1,5 @@
 // HorseGaitFix: fuerza la variable "Speed" del grafo de caballos que se mueven sin animar
 // (copias remotas de STR). No identifica caballos de STR: si Speed ya es >0, no toca nada.
-#define NOMINMAX
-#include <Windows.h>
 #include <RE/Skyrim.h>
 #include <SKSE/SKSE.h>
 #include <chrono>
@@ -98,7 +96,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse)
     SKSE::Init(skse);
     if (auto dir = SKSE::log::log_directory())
     {
-        auto log = std::make_shared<spdlog::logger>("HorseGaitFix", std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir / ("HorseGaitFix_" + std::to_string(GetCurrentProcessId()) + ".log")).string(), true));
+        auto log = std::make_shared<spdlog::logger>("HorseGaitFix", std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir / ("HorseGaitFix_" + std::to_string(REX::W32::GetCurrentProcessId()) + ".log")).string(), true));
         spdlog::set_default_logger(log);
         spdlog::flush_on(spdlog::level::info);
         spdlog::info("HorseGaitFix loaded");
