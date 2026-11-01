@@ -96,7 +96,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse)
     SKSE::Init(skse);
     if (auto dir = SKSE::log::log_directory())
     {
-        auto log = std::make_shared<spdlog::logger>("HorseGaitFix", std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir / ("HorseGaitFix_" + std::to_string(REX::W32::GetCurrentProcessId()) + ".log")).string(), true));
+        auto log = std::make_shared<spdlog::logger>("HorseGaitFix", std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir / ("HorseGaitFix_" + std::to_string(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()) + ".log")).string(), true));
         spdlog::set_default_logger(log);
         spdlog::flush_on(spdlog::level::info);
         spdlog::info("HorseGaitFix loaded");
